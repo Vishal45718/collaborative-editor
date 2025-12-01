@@ -1,25 +1,63 @@
-// server.js - The "Manual" Approach
+// server.js - Permanent History Version
 const { WebSocketServer } = require('ws');
-// We are NOT importing y-websocket utils to avoid the export errors.
-// We will build a basic relay server.
+const http = require('http');
 
-const wss = new WebSocketServer({ port: 1234 });
-console.log("WebSocket Server running on port 1234");
+const server = http.createServer();
+const wss = new WebSocketServer({ server });
 
-// Map to store document updates
-// In a real app, you'd use Yjs logic here, but for "Hello World", 
-// a simple broadcast works to prove connection.
+// Map: RoomName -> { clients: Set, history: Array }
 const rooms = new Map();
 
 wss.on('connection', (ws, req) => {
-  console.log('Client connected');
+  const roomName = req.url;
   
-  ws.on('message', (message) => {
-    // Broadcast message to all other clients
-    wss.clients.forEach((client) => {
+  // 1. Initialize Room if missing
+  if (!rooms.has(roomName)) {
+    rooms.set(roomName, { 
+      clients: new Set(), 
+      history: [] 
+    });
+    console.log(`🆕 Room created: ${roomName}`);
+  }
+
+  const room = rooms.get(roomName);
+  room.clients.add(ws);
+  console.log(`User joined ${roomName}. Total users: ${room.clients.size}`);
+
+  // 2. REPLAY HISTORY (The key to persistence)
+  if (room.history.length > 0) {
+    console.log(`Sending ${room.history.length} old updates to new user...`);
+    room.history.forEach((update) => {
+      ws.send(update);
+    });
+  }
+
+  // 3. Handle Messages
+  ws.on('message', (message, isBinary) => {
+    // Save to history
+    room.history.push(message);
+
+    // Broadcast to others
+    room.clients.forEach((client) => {
       if (client !== ws && client.readyState === 1) {
-        client.send(message);
+        client.send(message, { binary: isBinary });
       }
     });
   });
+
+  // 4. Cleanup
+  ws.on('close', () => {
+    room.clients.delete(ws);
+    console.log(`User left ${roomName}. Remaining users: ${room.clients.size}`);
+    
+    // ❌ REMOVED THE DELETION LOGIC
+    // We keep the room in memory even if it's empty!
+    // if (room.clients.size === 0) {
+    //    rooms.delete(roomName); 
+    // }
+  });
+});
+
+server.listen(1234, () => {
+  console.log('✅ Server running on port 1234 (Persistent Memory Mode)');
 });
