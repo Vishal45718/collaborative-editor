@@ -10,29 +10,30 @@ import { python } from '@codemirror/lang-python';
 import { java } from '@codemirror/lang-java';
 import { cpp } from '@codemirror/lang-cpp';
 import { javascript } from '@codemirror/lang-javascript';
-import Chat from './Chat'; // ✅ ADDED
+import { Play, Copy, ChevronDown, Users, X } from 'lucide-react'; 
+import toast, { Toaster } from 'react-hot-toast';
+import Chat from './Chat'; 
 
-// CONFIG OBJECT
 const LANGUAGES = {
-  cpp: {
+  'cpp': {
     name: 'C++',
     extension: cpp(),
     pistonRuntime: { language: 'c++', version: '10.2.0' },
     defaultCode: `#include <iostream>\nusing namespace std;\n\nint main() {\n    int x;\n    cin >> x;\n    cout << "You entered: " << x << endl;\n    return 0;\n}`
   },
-  python: {
+  'python': {
     name: 'Python',
     extension: python(),
     pistonRuntime: { language: 'python', version: '3.10.0' },
     defaultCode: `x = input()\nprint(f"You entered: {x}")`
   },
-  java: {
+  'java': {
     name: 'Java',
     extension: java(),
     pistonRuntime: { language: 'java', version: '15.0.2' },
     defaultCode: `import java.util.Scanner;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner scanner = new Scanner(System.in);\n        String x = scanner.nextLine();\n        System.out.println("You entered: " + x);\n    }\n}`
   },
-  javascript: {
+  'javascript': {
     name: 'JavaScript',
     extension: javascript(),
     pistonRuntime: { language: 'javascript', version: '18.15.0' },
@@ -45,50 +46,37 @@ export default function EditorPage() {
   const { roomId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-
-  // Redirect if user typed URL manually
-  useEffect(() => {
-    if (!location.state?.username) {
-      navigate('/');
-    }
-  }, [location.state, navigate]);
-
-  const username = location.state?.username || "Anonymous";
-
-  const [language, setLanguage] = useState('cpp');
+  
+  const [language, setLanguage] = useState('cpp'); 
   const [output, setOutput] = useState('Click "Run Code" to see output here...');
   const [isRunning, setIsRunning] = useState(false);
   const [stdin, setStdin] = useState('');
   const [isError, setIsError] = useState(false);
-
-  const [copyBtnText, setCopyBtnText] = useState('Copy Room ID');
+  
   const [ytext, setYtext] = useState(null);
   const [provider, setProvider] = useState(null);
+  
+  // User List State
+  const [clients, setClients] = useState([]);
+  const [showUserList, setShowUserList] = useState(false);
+  
+  const username = location.state?.username || 'Anonymous';
 
-  // Copy room ID only
-  const copyRoomId = async () => {
-    try {
-      await navigator.clipboard.writeText(roomId);
-      setCopyBtnText('ID Copied! ✅');
-      setTimeout(() => setCopyBtnText('Copy Room ID'), 2000);
-    } catch {
-      alert('Failed to copy Room ID');
-    }
-  };
-
-  // Create Y.Doc + WebsocketProvider
+  // 1. CONNECTION
   useEffect(() => {
-    const ydoc = new Y.Doc();
+    if (!location.state?.username) {
+        navigate('/');
+        return;
+    }
 
-    // 🟢 UPDATED TO CLOUD SERVER (Render) WITH wss://
+    const ydoc = new Y.Doc();
     const newProvider = new WebsocketProvider(
-      'wss://editor-backend-m2ch.onrender.com', 
-      roomId, 
+      'wss://editor-backend-m2ch.onrender.com', // Your Render URL
+      roomId,
       ydoc
     );
-
     const newYtext = ydoc.getText('codemirror');
-
+    
     setProvider(newProvider);
     setYtext(newYtext);
 
@@ -96,14 +84,14 @@ export default function EditorPage() {
       newProvider.destroy();
       ydoc.destroy();
     };
-  }, [roomId]);
+  }, [roomId, location.state, navigate]);
 
-  // Setup CodeMirror
+  // 2. EDITOR SETUP
   useEffect(() => {
     if (!ytext || !provider || !editorRef.current) return;
 
     if (ytext.toString() === '') {
-      ytext.insert(0, LANGUAGES[language].defaultCode);
+        ytext.insert(0, LANGUAGES[language].defaultCode);
     }
 
     const state = EditorState.create({
@@ -116,29 +104,111 @@ export default function EditorPage() {
       ]
     });
 
-    const view = new EditorView({ state, parent: editorRef.current });
+    const view = new EditorView({
+      state,
+      parent: editorRef.current
+    });
 
-    return () => view.destroy();
+    return () => {
+      view.destroy();
+    };
   }, [ytext, provider, language]);
 
-  // Awareness (cursor color + name)
+  // 3. USER AWARENESS (Identity Logic)
   useEffect(() => {
     if (!provider) return;
 
+    // 🟢 Fix 1: Persist Color so refresh doesn't look like a new person
+    const storedColor = sessionStorage.getItem(`userColor-${roomId}`);
     const colors = ['#f783ac', '#d9480f', '#74b816', '#1098ad', '#5c7cfa'];
-    const myColor = colors[Math.floor(Math.random() * colors.length)];
+    const myColor = storedColor || colors[Math.floor(Math.random() * colors.length)];
+    
+    if (!storedColor) {
+        sessionStorage.setItem(`userColor-${roomId}`, myColor);
+    }
 
+    // Set my user data
     provider.awareness.setLocalStateField('user', {
-      name: username,
-      color: myColor,
-      colorLight: myColor + "33"
+        name: username,
+        color: myColor,
+        colorLight: myColor + '33' 
     });
-  }, [provider, username]);
 
-  // Run code
+    // 🟢 Fix 2: Instant Cleanup on Refresh (Removes Ghost Users)
+    const handleUnload = () => {
+        provider.awareness.setLocalState(null); // Tell everyone I left immediately
+        provider.destroy();
+    };
+
+    window.addEventListener('beforeunload', handleUnload);
+    return () => {
+        window.removeEventListener('beforeunload', handleUnload);
+    }
+  }, [provider, username, roomId]);
+
+  // 4. CLIENT LISTENER
+  const clientCache = useRef(new Map()); 
+  const hasJoinedRef = useRef(false);
+
+  useEffect(() => {
+    if (!provider) return;
+
+    // Reset cache when provider changes (room switch)
+    clientCache.current.clear();
+    hasJoinedRef.current = false;
+
+    const awareness = provider.awareness;
+
+    const updateClients = () => {
+       const states = awareness.getStates(); // Get ALL users (me + others)
+       
+       // 1. Detect Joins
+       states.forEach((state, clientId) => {
+         if (state.user && state.user.name) {
+           if (!clientCache.current.has(clientId)) {
+             clientCache.current.set(clientId, state.user);
+             
+             if (hasJoinedRef.current) {
+               toast.success(`${state.user.name} joined!`);
+             }
+           }
+         }
+       });
+
+       // 2. Detect Leaves
+       clientCache.current.forEach((user, clientId) => {
+         if (!states.has(clientId)) {
+           toast(`${user.name} left`, { icon: '👋' });
+           clientCache.current.delete(clientId);
+         }
+       });
+
+       // Mark initial load as done so we don't toast for existing users
+       if (!hasJoinedRef.current && states.size > 0) {
+         hasJoinedRef.current = true;
+       }
+
+       const clientList = Array.from(states.values())
+        .map(s => s.user)
+        .filter(u => u && u.name); // Filter out empty states
+       
+       // Deduplicate by Name (Optional: In case of fast-refresh race conditions)
+       const uniqueClients = Array.from(new Map(clientList.map(item => [item.name, item])).values());
+
+       setClients(uniqueClients);
+    };
+
+    // 🟢 Fix 3: Run immediately to see existing users
+    updateClients();
+
+    awareness.on('change', updateClients);
+    return () => awareness.off('change', updateClients);
+  }, [provider]);
+
+
   const runCode = async () => {
     if (!ytext) return;
-
+    
     setIsRunning(true);
     setOutput('Compiling and Running...');
     setIsError(false);
@@ -154,122 +224,221 @@ export default function EditorPage() {
           language: runtime.language,
           version: runtime.version,
           files: [{ content: sourceCode }],
-          stdin,
-          args: []
+          stdin: stdin,
+          args: [] 
         })
       });
 
       const data = await response.json();
-
-      if (data.run?.stderr) {
-        setIsError(true);
-        setOutput(data.run.stderr);
+      
+      if (data.run && data.run.stderr) {
+         setIsError(true);
+         setOutput(data.run.stderr);
       } else {
-        setIsError(false);
-        setOutput(data.run.output);
+         setIsError(false);
+         setOutput(data.run.output);
+         toast.success("Run complete!");
       }
-    } catch {
+    } catch (err) {
       setIsError(true);
       setOutput('Error: Could not connect to compiler API.');
+      toast.error("Compilation failed");
+    } finally {
+      setIsRunning(false);
     }
+  };
 
-    setIsRunning(false);
+  const copyRoomId = async () => {
+    try {
+      await navigator.clipboard.writeText(roomId);
+      toast.success('Room ID copied!');
+    } catch (err) {
+      toast.error('Failed to copy');
+    }
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#282c34', color: 'white' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#0f1117', color: '#e6edf3' }}>
+      <Toaster position="top-center" toastOptions={{ style: { background: '#1e293b', color: '#fff' } }}/>
       
-      {/* HEADER BAR */}
-      <div style={{ padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#21252b' }}>
+      {/* 🟢 TOP BAR */}
+      <div style={{ 
+        padding: '0 20px', 
+        height: '60px', 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        borderBottom: '1px solid #30363d',
+        backgroundColor: '#161b22',
+        zIndex: 100 
+      }}>
         
-        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+        {/* Left: Brand */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold', color: '#61dafb' }}>CodeSync</h2>
           
-          <h2 style={{ margin: 0 }}>
-            Room: <span style={{color: '#61dafb'}}>{roomId}</span>
-          </h2>
-
-          <select 
-            value={language} 
-            onChange={(e) => {
-              const newLang = e.target.value;
-              if (window.confirm(`Switching to ${LANGUAGES[newLang].name} will CLEAR the current code. Proceed?`)) {
-                setLanguage(newLang);
-                if (ytext) {
-                  ytext.delete(0, ytext.length);
-                  ytext.insert(0, LANGUAGES[newLang].defaultCode);
-                }
-              }
-            }}
-            style={{ padding: '5px', borderRadius: '5px', backgroundColor: '#333', color: 'white', border: '1px solid #555', cursor: 'pointer' }}
-          >
-            {Object.keys(LANGUAGES).map(lang => (
-              <option key={lang} value={lang}>{LANGUAGES[lang].name}</option>
-            ))}
-          </select>
-
-          <button
-            onClick={copyRoomId}
-            style={{
-              marginLeft: '10px',
-              padding: '5px 10px',
-              backgroundColor: '#444',
-              color: 'white',
-              border: '1px solid #666',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              fontSize: '12px'
-            }}
-          >
-            {copyBtnText}
-          </button>
-
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#0d1117', padding: '5px 15px', borderRadius: '6px', border: '1px solid #30363d' }}>
+             <span style={{ color: '#8b949e', fontSize: '0.9rem' }}>Room:</span>
+             <span style={{ fontWeight: 'bold', letterSpacing: '1px' }}>{roomId}</span>
+             <button onClick={copyRoomId} className="btn" style={{ background: 'none', border: 'none', color: '#8b949e', cursor: 'pointer', display: 'flex' }}><Copy size={14}/></button>
+          </div>
         </div>
 
-        <button 
-          onClick={runCode} 
-          disabled={isRunning}
-          style={{
-            backgroundColor: isRunning ? '#666' : '#28a745',
-            color: 'white',
-            border: 'none',
-            padding: '10px 20px',
-            borderRadius: '5px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-            fontSize: '14px'
-          }}
-        >
-          {isRunning ? 'Running...' : '▶ Run Code'}
+        {/* 🟢 CENTER: USERS DROPDOWN */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          
+          <div style={{ position: 'relative' }}>
+            {/* The Clickable Stack */}
+            <div 
+              onClick={() => setShowUserList(!showUserList)}
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                background: '#0d1117', 
+                padding: '6px 12px', 
+                borderRadius: '20px', 
+                border: '1px solid #30363d',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              title="View all users"
+            >
+              <Users size={16} color="#8b949e" style={{ marginRight: '10px' }}/>
+              <div style={{ display: 'flex', marginLeft: '-5px' }}>
+                {clients.slice(0, 3).map((client, index) => (
+                  <div key={index} style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    backgroundColor: client.color,
+                    border: '2px solid #161b22',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontSize: '10px',
+                    fontWeight: 'bold',
+                    marginLeft: index === 0 ? 0 : '-10px'
+                  }}>
+                    {client.name.charAt(0).toUpperCase()}
+                  </div>
+                ))}
+                {clients.length > 3 && (
+                  <div style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    backgroundColor: '#30363d',
+                    border: '2px solid #161b22',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#e6edf3',
+                    fontSize: '10px',
+                    fontWeight: 'bold',
+                    marginLeft: '-10px'
+                  }}>
+                    +{clients.length - 3}
+                  </div>
+                )}
+              </div>
+              <ChevronDown size={12} color="#8b949e" style={{ marginLeft: '8px', transform: showUserList ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}/>
+            </div>
+
+            {/* The Dropdown Panel */}
+            {showUserList && (
+              <div style={{
+                position: 'absolute',
+                top: '120%',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: '220px',
+                backgroundColor: '#161b22',
+                border: '1px solid #30363d',
+                borderRadius: '12px',
+                padding: '10px',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                zIndex: 200,
+                animation: 'fadeIn 0.2s ease'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', paddingBottom: '8px', borderBottom: '1px solid #30363d' }}>
+                   <span style={{ fontSize: '12px', color: '#8b949e', fontWeight: 'bold', textTransform: 'uppercase' }}>Active Users ({clients.length})</span>
+                   <X size={14} color="#8b949e" style={{ cursor: 'pointer' }} onClick={() => setShowUserList(false)}/>
+                </div>
+                
+                <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {clients.map((client, index) => (
+                    <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px', borderRadius: '6px' }}>
+                      <div style={{
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '50%',
+                        backgroundColor: client.color,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}>
+                        {client.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                         <span style={{ fontSize: '14px', color: '#e6edf3' }}>{client.name} {client.name === username && <span style={{color: '#8b949e'}}>(You)</span>}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div style={{ position: 'relative' }}>
+            <select 
+              value={language} 
+              onChange={(e) => {
+                  const newLang = e.target.value;
+                  if (window.confirm(`Switching to ${LANGUAGES[newLang].name} will reset your code. Continue?`)) {
+                      setLanguage(newLang);
+                      if (ytext) {
+                          ytext.delete(0, ytext.length);
+                          ytext.insert(0, LANGUAGES[newLang].defaultCode);
+                          toast.success(`Switched to ${LANGUAGES[newLang].name}`);
+                      }
+                  }
+              }}
+              style={{ padding: '8px 30px 8px 15px', borderRadius: '6px', background: '#21262d', color: '#c9d1d9', border: '1px solid #30363d', appearance: 'none', cursor: 'pointer', fontSize: '0.9rem' }}
+            >
+              {Object.keys(LANGUAGES).map(lang => <option key={lang} value={lang}>{LANGUAGES[lang].name}</option>)}
+            </select>
+            <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#8b949e' }} />
+          </div>
+        </div>
+        
+        <button onClick={runCode} disabled={isRunning} className="btn" style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: isRunning ? '#30363d' : '#238636', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '8px 20px', borderRadius: '6px', cursor: isRunning ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '0.9rem' }}>
+          {isRunning ? 'Running...' : <><Play size={16} fill="white" /> Run Code</>}
         </button>
       </div>
 
-      <div ref={editorRef} style={{ flex: 1, overflow: 'auto', fontSize: '16px' }} />
-
-      <div style={{ height: '250px', display: 'flex', borderTop: '2px solid #333', backgroundColor: '#1e1e1e' }}>
-        
-        <div style={{ width: '30%', borderRight: '2px solid #333', display: 'flex', flexDirection: 'column' }}>
-          <strong style={{ padding: '10px', color: '#888', backgroundColor: '#252526' }}>INPUT (stdin):</strong>
-          
-          <textarea 
-            value={stdin}
-            onChange={(e) => setStdin(e.target.value)}
-            placeholder="Enter input here..."
-            style={{ flex: 1, backgroundColor: '#1e1e1e', color: 'white', border: 'none', padding: '10px', resize: 'none', outline: 'none', fontFamily: 'monospace' }}
-          />
-        </div>
-
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <strong style={{ padding: '10px', color: '#888', backgroundColor: '#252526' }}>TERMINAL OUTPUT:</strong>
-          <pre style={{ margin: 0, padding: '10px', fontFamily: 'monospace', color: isError ? '#ff6b6b' : '#ddd', overflow: 'auto', flex: 1 }}>
-            {output}
-          </pre>
-        </div>
-
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <div ref={editorRef} style={{ flex: 1, overflow: 'auto', borderRight: '1px solid #30363d' }} />
       </div>
 
-      {/* 🟢 ADD CHAT WIDGET AT BOTTOM */}
-      <Chat provider={provider} username={username} />
+      <div style={{ height: '250px', display: 'flex', borderTop: '1px solid #30363d', backgroundColor: '#0d1117' }}>
+        <div style={{ width: '30%', borderRight: '1px solid #30363d', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '8px 15px', backgroundColor: '#161b22', borderBottom: '1px solid #30363d', color: '#8b949e', fontSize: '0.8rem', fontWeight: 'bold' }}>STDIN (Input)</div>
+          <textarea value={stdin} onChange={(e) => setStdin(e.target.value)} style={{ flex: 1, background: '#0d1117', color: '#e6edf3', border: 'none', padding: '10px', resize: 'none', fontFamily: 'monospace', outline: 'none' }} />
+        </div>
 
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '8px 15px', backgroundColor: '#161b22', borderBottom: '1px solid #30363d', color: '#8b949e', fontSize: '0.8rem', fontWeight: 'bold' }}>CONSOLE OUTPUT</div>
+          <pre style={{ margin: 0, padding: '15px', fontFamily: "'JetBrains Mono', monospace", color: isError ? '#f85149' : '#e6edf3', overflow: 'auto', flex: 1 }}>{output}</pre>
+        </div>
+      </div>
+
+      <Chat provider={provider} username={username} />
+      
+      <style>{`@keyframes fadeIn { from { opacity: 0; transform: translate(-50%, -10px); } to { opacity: 1; transform: translate(-50%, 0); } }`}</style>
     </div>
   );
 }
