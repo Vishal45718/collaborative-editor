@@ -1,27 +1,27 @@
-# 🚀 Real-Time Collaborative IDE (CodeSync)
+#  Real-Time Collaborative IDE (CodeSync)
 
 A distributed, real-time code editor that allows multiple users to write, edit, and run code simultaneously in the same room. Think of it as **"Google Docs for Developers."**
 
 
 ---
 
-## ✨ Key Features
+##  Key Features
 
-* **⚡ Real-Time Synchronization:** Sub-millisecond latency updates using **WebSockets**.
-* **🔗 Conflict-Free Editing:** Uses **CRDTs (Yjs)** to handle merge conflicts automatically (no overwriting!).
-* **🛠 Multi-Language Support:**
+* ** Real-Time Synchronization:** Sub-millisecond latency updates using **WebSockets**.
+* ** Conflict-Free Editing:** Uses **CRDTs (Yjs)** to handle merge conflicts automatically (no overwriting!).
+* ** Multi-Language Support:**
     * C++ (GCC 10.2.0)
     * Python (3.10.0)
     * Java (OpenJDK 15)
     * JavaScript (Node 18)
-* **🏃‍♂️ Integrated Compiler:** Execute code securely in the cloud via the **Piston API**.
-* **💻 Standard Input (stdin):** Interactive terminal for handling user inputs (essential for LeetCode/CP problems).
-* **🔒 Room Isolation:** Dynamic rooms via URL parameters ensure privacy between different groups.
-* **🎨 Professional UI:** VS Code-like experience with OneDark theme and syntax highlighting.
+* **Integrated Compiler:** Execute code securely in the cloud via the **Piston API**.
+* ** Standard Input (stdin):** Interactive terminal for handling user inputs (essential for LeetCode/CP problems).
+* ** Room Isolation:** Dynamic rooms via URL parameters ensure privacy between different groups.
+* ** Professional UI:** VS Code-like experience with OneDark theme and syntax highlighting.
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 This project uses a **Client-Server** architecture powered by a customized **WebSocket Relay**.
 
@@ -47,7 +47,7 @@ This project uses a **Client-Server** architecture powered by a customized **Web
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 Follow these steps to run the project locally.
 
