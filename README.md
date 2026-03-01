@@ -2,10 +2,6 @@
 
 A distributed, real-time code editor that allows multiple users to write, edit, and run code simultaneously in the same room. Think of it as **"Google Docs for Developers."**
 
-> **Live Demo:** [Insert your deployed link here later]
-
-![Demo Screenshot](https://via.placeholder.com/800x400?text=Add+Your+Screenshot+Here)
-*(Tip: Replace the link above with a GIF of your editor in action!)*
 
 ---
 
