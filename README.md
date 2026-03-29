@@ -29,7 +29,7 @@ A futuristic, real-time code editor that allows multiple developers to write, ed
 ### 🔐 Security & Performance
 - **Sandboxed code execution**
 - **Room-based isolation**
-- **MongoDB persistence**
+- **In-memory data storage** with presence indicators
 - **User awareness** and presence indicators
 
 ---
@@ -37,13 +37,13 @@ A futuristic, real-time code editor that allows multiple developers to write, ed
 ## 🏗️ Architecture
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   React Client  │◄──►│  Yjs WebSocket  │◄──►│   MongoDB Atlas  │
-│                 │    │   (CRDT Sync)   │    │  (Persistence)  │
-│ - CodeMirror 6  │    │                 │    │                 │
-│ - Real-time UI  │    │ - setupWSConn   │    │ - Room Data     │
-│ - File Explorer │    │ - Awareness     │    │ - User Sessions │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+┌─────────────────┐    ┌─────────────────┐
+│   React Client  │◄──►│  Yjs WebSocket  │
+│                 │    │   (CRDT Sync)   │
+│ - CodeMirror 6  │    │                 │
+│ - Real-time UI  │    │ - setupWSConn   │
+│ - File Explorer │    │ - Awareness     │
+└─────────────────┘    └─────────────────┘
          │                       │                       │
          └───────────────────────┼───────────────────────┘
                                  ▼
@@ -61,7 +61,7 @@ A futuristic, real-time code editor that allows multiple developers to write, ed
 | **Editor** | CodeMirror 6 | Advanced code editing |
 | **Real-time** | Yjs + y-websocket | CRDT synchronization |
 | **Backend** | Node.js + Express | REST API & WebSocket server |
-| **Database** | MongoDB Atlas | Data persistence |
+| **Storage** | In-memory + Yjs | Real-time document sync |
 | **Execution** | Piston API | Secure code execution |
 | **Styling** | CSS-in-JS | Modern responsive design |
 
@@ -71,7 +71,6 @@ A futuristic, real-time code editor that allows multiple developers to write, ed
 
 ### Prerequisites
 - **Node.js** 18+ and npm
-- **MongoDB** (local or Atlas)
 
 ### 1. Clone & Install
 ```bash
@@ -85,8 +84,6 @@ npm run install-client
 Create a `.env` file in the root directory:
 ```env
 PORT=1234
-MONGODB_URI=mongodb://localhost:27017/codesync
-# For production: Use MongoDB Atlas connection string (keep credentials secure)
 ```
 
 ### 3. Start Development Server
@@ -165,7 +162,6 @@ To add a new programming language:
 ```env
 NODE_ENV=production
 PORT=1234
-MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/codesync
 ```
 
 ### Build Commands
