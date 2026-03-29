@@ -86,7 +86,7 @@ Create a `.env` file in the root directory:
 ```env
 PORT=1234
 MONGODB_URI=mongodb://localhost:27017/codesync
-# For production: MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/codesync
+# For production: Use MongoDB Atlas connection string (keep credentials secure)
 ```
 
 ### 3. Start Development Server
