@@ -1,61 +1,215 @@
-#  Real-Time Collaborative IDE (CodeSync)
+# 🚀 CodeSync - Real-Time Collaborative IDE
 
-A distributed, real-time code editor that allows multiple users to write, edit, and run code simultaneously in the same room. Think of it as **"Google Docs for Developers."**
+A futuristic, real-time code editor that allows multiple developers to write, edit, and run code simultaneously. Built with cutting-edge technologies for seamless collaboration.
 
-
----
-
-##  Key Features
-
-* ** Real-Time Synchronization:** Sub-millisecond latency updates using **WebSockets**.
-* ** Conflict-Free Editing:** Uses **CRDTs (Yjs)** to handle merge conflicts automatically (no overwriting!).
-* ** Multi-Language Support:**
-    * C++ (GCC 10.2.0)
-    * Python (3.10.0)
-    * Java (OpenJDK 15)
-    * JavaScript (Node 18)
-* **Integrated Compiler:** Execute code securely in the cloud via the **Piston API**.
-* ** Standard Input (stdin):** Interactive terminal for handling user inputs (essential for LeetCode/CP problems).
-* ** Room Isolation:** Dynamic rooms via URL parameters ensure privacy between different groups.
-* ** Professional UI:** VS Code-like experience with OneDark theme and syntax highlighting.
+![CodeSync Preview](https://via.placeholder.com/800x400/0f172a/22d3ee?text=CodeSync+Preview)
 
 ---
 
-## System Architecture
+## ✨ Features
 
-This project uses a **Client-Server** architecture powered by a customized **WebSocket Relay**.
+### 🔄 Real-Time Synchronization
+- **Sub-millisecond latency** updates using WebSockets
+- **CRDT-based** conflict resolution (Yjs)
+- **Operational Transformation** for seamless editing
 
-### **Tech Stack**
+### 💻 Multi-Language Support
+- **C++** (GCC 10.2.0)
+- **Python** (3.10.0)
+- **Java** (OpenJDK 15)
+- **JavaScript** (Node 18)
 
-| Component | Technology | Why? |
-| :--- | :--- | :--- |
-| **Frontend** | React.js + Vite | Fast rendering and component-based UI. |
-| **Editor Core** | CodeMirror 6 | Modular, accessible, and highly extensible text editor. |
-| **State Sync** | **Yjs (CRDT)** | The gold standard for decentralized shared data. |
-| **Networking** | WebSockets (ws) | Full-duplex communication for real-time updates. |
-| **Backend** | Node.js | Custom relay server with in-memory history retention. |
-| **Compiler** | Piston API | Sandboxed remote code execution. |
+### 🛠️ Integrated Development Environment
+- **VS Code-like interface** with OneDark theme
+- **File explorer** with project structure
+- **Real-time chat** for team communication
+- **Code execution** via Piston API
+- **Standard input/output** handling
 
-### **Data Flow Diagram**
-
-1.  **User A** types a character.
-2.  **Yjs** converts the update into a tiny binary binary blob.
-3.  **Client** sends blob via WebSocket to the **Node.js Server**.
-4.  **Server** broadcasts the blob to all other users in the same `roomId`.
-5.  **User B** receives the blob and merges it into their local state.
-6.  *Result:* eventual consistency without race conditions.
+### 🔐 Security & Performance
+- **Sandboxed code execution**
+- **Room-based isolation**
+- **MongoDB persistence**
+- **User awareness** and presence indicators
 
 ---
 
-##  Getting Started
+## 🏗️ Architecture
 
-Follow these steps to run the project locally.
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   React Client  │◄──►│  Yjs WebSocket  │◄──►│   MongoDB Atlas  │
+│                 │    │   (CRDT Sync)   │    │  (Persistence)  │
+│ - CodeMirror 6  │    │                 │    │                 │
+│ - Real-time UI  │    │ - setupWSConn   │    │ - Room Data     │
+│ - File Explorer │    │ - Awareness     │    │ - User Sessions │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         └───────────────────────┼───────────────────────┘
+                                 ▼
+                    ┌─────────────────┐
+                    │  Piston API     │
+                    │ (Code Execution)│
+                    └─────────────────┘
+```
 
-### **Prerequisites**
-* Node.js (v18 or higher)
-* npm
+### Tech Stack
 
-### **1. Clone the Repository**
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| **Frontend** | React 19 + Vite | Modern UI framework |
+| **Editor** | CodeMirror 6 | Advanced code editing |
+| **Real-time** | Yjs + y-websocket | CRDT synchronization |
+| **Backend** | Node.js + Express | REST API & WebSocket server |
+| **Database** | MongoDB Atlas | Data persistence |
+| **Execution** | Piston API | Secure code execution |
+| **Styling** | CSS-in-JS | Modern responsive design |
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- **Node.js** 18+ and npm
+- **MongoDB** (local or Atlas)
+
+### 1. Clone & Install
 ```bash
-git clone [https://github.com/YOUR_USERNAME/realtime-code-editor.git](https://github.com/YOUR_USERNAME/realtime-code-editor.git)
-cd realtime-code-editor
+git clone <repository-url>
+cd codesync
+npm install
+npm run install-client
+```
+
+### 2. Environment Setup
+Create a `.env` file in the root directory:
+```env
+PORT=1234
+MONGODB_URI=mongodb://localhost:27017/codesync
+# For production: MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/codesync
+```
+
+### 3. Start Development Server
+```bash
+# Start both server and client
+npm run dev
+
+# Or run separately:
+npm run server    # Backend on :1234
+npm run client    # Frontend on :5173
+```
+
+### 4. Open in Browser
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:1234/api
+
+---
+
+## 📁 Project Structure
+
+```
+codesync/
+├── server.js              # Express + Yjs WebSocket server
+├── package.json           # Backend dependencies
+├── .env                   # Environment variables
+├── client/                # React frontend
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── App.jsx          # Main app router
+│   │   │   ├── Home.jsx         # Landing page
+│   │   │   ├── EditorPage.jsx   # Main editor
+│   │   │   ├── FileExplorer.jsx # File tree
+│   │   │   └── Chat.jsx         # Real-time chat
+│   │   ├── App.css
+│   │   └── main.jsx
+│   ├── package.json
+│   └── vite.config.js
+└── README.md
+```
+
+---
+
+## 🔧 API Endpoints
+
+### WebSocket
+- `ws://localhost:1234/[roomId]` - Yjs synchronization
+
+### REST API
+- `GET /api/health` - Server health check
+- `GET /api/rooms/:roomId` - Get room information
+- `PUT /api/rooms/:roomId` - Update room data
+- `POST /api/rooms/:roomId/participants` - Add participant
+- `DELETE /api/rooms/:roomId/participants/:username` - Remove participant
+- `GET /api/rooms` - List active rooms
+
+---
+
+## 🎨 Customization
+
+### Themes
+The editor supports multiple themes. To add a new theme:
+1. Install the theme package from `@codemirror/theme-*`
+2. Import and add to the theme selection in `EditorPage.jsx`
+
+### Languages
+To add a new programming language:
+1. Install the language package from `@codemirror/lang-*`
+2. Add language configuration to `LANGUAGES` object
+3. Update Piston API runtime configuration
+
+---
+
+## 🚢 Deployment
+
+### Environment Variables for Production
+```env
+NODE_ENV=production
+PORT=1234
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/codesync
+```
+
+### Build Commands
+```bash
+npm run build    # Build frontend
+npm run start    # Start production server
+```
+
+### Docker Support (Future)
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+EXPOSE 1234
+CMD ["npm", "start"]
+```
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- **Yjs** - For revolutionary CRDT technology
+- **CodeMirror** - For the world's best code editor
+- **Piston API** - For secure code execution
+- **React** - For modern web development
+
+---
+
+*Built with ❤️ for developers, by developers*

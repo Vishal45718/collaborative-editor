@@ -10,9 +10,10 @@ import { python } from '@codemirror/lang-python';
 import { java } from '@codemirror/lang-java';
 import { cpp } from '@codemirror/lang-cpp';
 import { javascript } from '@codemirror/lang-javascript';
-import { Play, Copy, ChevronDown, Users, X } from 'lucide-react'; 
+import { Play, Copy, ChevronDown, Users, X, Settings, Zap, Terminal } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
-import Chat from './Chat'; 
+import Chat from './Chat';
+import FileExplorer from './FileExplorer'; 
 
 const LANGUAGES = {
   'cpp': {
@@ -71,7 +72,7 @@ export default function EditorPage() {
 
     const ydoc = new Y.Doc();
     const newProvider = new WebsocketProvider(
-      'wss://editor-backend-m2ch.onrender.com', // Your Render URL
+      'ws://localhost:1234', // Local development server
       roomId,
       ydoc
     );
@@ -275,7 +276,23 @@ export default function EditorPage() {
         
         {/* Left: Brand */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold', color: '#61dafb' }}>CodeSync</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, #22d3ee, #4ade80)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '18px',
+              fontWeight: 'bold',
+              color: '#020617'
+            }}>
+              C
+            </div>
+            <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold', color: '#61dafb' }}>CodeSync</h2>
+          </div>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#0d1117', padding: '5px 15px', borderRadius: '6px', border: '1px solid #30363d' }}>
              <span style={{ color: '#8b949e', fontSize: '0.9rem' }}>Room:</span>
@@ -416,12 +433,18 @@ export default function EditorPage() {
         </div>
         
         <button onClick={runCode} disabled={isRunning} className="btn" style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: isRunning ? '#30363d' : '#238636', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '8px 20px', borderRadius: '6px', cursor: isRunning ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '0.9rem' }}>
-          {isRunning ? 'Running...' : <><Play size={16} fill="white" /> Run Code</>}
+          {isRunning ? <><Terminal size={16} /> Running...</> : <><Play size={16} fill="white" /> Run Code</>}
         </button>
       </div>
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <div ref={editorRef} style={{ flex: 1, overflow: 'auto', borderRight: '1px solid #30363d' }} />
+        {/* File Explorer */}
+        <FileExplorer ydoc={provider?.doc} provider={provider} roomId={roomId} />
+
+        {/* Editor */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div ref={editorRef} style={{ flex: 1, overflow: 'auto' }} />
+        </div>
       </div>
 
       <div style={{ height: '250px', display: 'flex', borderTop: '1px solid #30363d', backgroundColor: '#0d1117' }}>
