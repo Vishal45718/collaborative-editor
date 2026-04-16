@@ -1,75 +1,73 @@
 import { useState, useEffect } from 'react';
-import { Folder, File, Plus, X, ChevronRight, ChevronDown } from 'lucide-react';
+import { useIdeStore } from '../store/useIdeStore';
+import { LANGUAGES, getLanguageByExtension } from '../config/languages';
+import * as Y from 'yjs';
+import { Folder, File, Plus, X, ChevronRight, ChevronDown, Trash2, Edit2 } from 'lucide-react';
 
-export default function FileExplorer({ ydoc, provider, roomId }) {
-  const [files, setFiles] = useState([
-    { name: 'main.cpp', type: 'file', content: '#include <iostream>\nusing namespace std;\n\nint main() {\n    cout << "Hello World!" << endl;\n    return 0;\n}' },
-    { name: 'utils.h', type: 'file', content: '#ifndef UTILS_H\n#define UTILS_H\n\n// Utility functions\n\n#endif' },
-    { name: 'src', type: 'folder', children: [
-      { name: 'helper.cpp', type: 'file', content: '#include "helper.h"\n\n// Helper implementations' },
-      { name: 'helper.h', type: 'file', content: '#ifndef HELPER_H\n#define HELPER_H\n\nvoid helper();\n\n#endif' }
-    ]}
-  ]);
-  const [expandedFolders, setExpandedFolders] = useState(new Set(['src']));
-  const [selectedFile, setSelectedFile] = useState('main.cpp');
+export default function FileExplorer({ filesMap }) {
+  const [files, setFiles] = useState([]);
+  const [expandedFolders, setExpandedFolders] = useState(new Set(['/']));
+  
+  const { activeFile, setActiveFile, setActiveLanguage } = useIdeStore();
 
-  const toggleFolder = (folderName) => {
-    const newExpanded = new Set(expandedFolders);
-    if (newExpanded.has(folderName)) {
-      newExpanded.delete(folderName);
-    } else {
-      newExpanded.add(folderName);
-    }
-    setExpandedFolders(newExpanded);
-  };
+  useEffect(() => {
+    if (!filesMap) return;
+
+    const updateFiles = () => {
+      const currentFiles = Array.from(filesMap.keys());
+      setFiles(currentFiles);
+      if (!activeFile && currentFiles.length > 0) {
+        selectFile(currentFiles[0]);
+      }
+    };
+
+    updateFiles();
+    filesMap.observe(updateFiles);
+
+    return () => {
+      filesMap.unobserve(updateFiles);
+    };
+  }, [filesMap]);
 
   const selectFile = (fileName) => {
-    setSelectedFile(fileName);
-    // Here you would update the editor content
+    setActiveFile(fileName);
+    const langId = getLanguageByExtension(fileName);
+    setActiveLanguage(langId);
   };
 
-  const renderFileTree = (items, level = 0) => {
-    return items.map((item, index) => (
-      <div key={index} style={{ marginLeft: level * 20 }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            padding: '4px 8px',
-            cursor: 'pointer',
-            borderRadius: '4px',
-            backgroundColor: selectedFile === item.name ? 'rgba(34, 211, 238, 0.1)' : 'transparent',
-            color: selectedFile === item.name ? '#22d3ee' : '#e6edf3'
-          }}
-          onClick={() => item.type === 'folder' ? toggleFolder(item.name) : selectFile(item.name)}
-        >
-          {item.type === 'folder' ? (
-            <>
-              {expandedFolders.has(item.name) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              <Folder size={16} style={{ marginRight: '8px', color: '#74b816' }} />
-            </>
-          ) : (
-            <>
-              <File size={16} style={{ marginRight: '8px', marginLeft: '18px', color: '#61dafb' }} />
-            </>
-          )}
-          <span style={{ fontSize: '14px' }}>{item.name}</span>
-        </div>
-        {item.type === 'folder' && expandedFolders.has(item.name) && item.children && (
-          <div>{renderFileTree(item.children, level + 1)}</div>
-        )}
-      </div>
-    ));
+  const addFile = () => {
+    const fileName = prompt('Enter new file name with extension (e.g., app.py):');
+    if (!fileName) return;
+
+    if (filesMap.has(fileName)) {
+      alert('File already exists!');
+      return;
+    }
+
+    const langId = getLanguageByExtension(fileName);
+    const defaultCode = LANGUAGES[langId]?.defaultCode || '';
+    filesMap.set(fileName, new Y.Text(defaultCode));
+    selectFile(fileName);
+  };
+
+  const deleteFile = (fileName, e) => {
+    e.stopPropagation();
+    if (confirm(`Are you sure you want to delete ${fileName}?`)) {
+      filesMap.delete(fileName);
+      if (activeFile === fileName) {
+        setActiveFile(null);
+      }
+    }
   };
 
   return (
     <div style={{
-      width: '250px',
+      width: '100%',
+      height: '100%',
       backgroundColor: '#161b22',
-      borderRight: '1px solid #30363d',
       display: 'flex',
       flexDirection: 'column',
-      height: '100%'
+      color: '#e6edf3'
     }}>
       {/* Header */}
       <div style={{
@@ -79,33 +77,73 @@ export default function FileExplorer({ ydoc, provider, roomId }) {
         justifyContent: 'space-between',
         alignItems: 'center'
       }}>
-        <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#e6edf3' }}>EXPLORER</span>
-        <button style={{
+        <span style={{ fontSize: '11px', fontWeight: '600', letterSpacing: '0.04em' }}>EXPLORER</span>
+        <button onClick={addFile} style={{
           background: 'none',
           border: 'none',
           color: '#8b949e',
           cursor: 'pointer',
-          padding: '4px'
-        }}>
+          padding: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: '4px'
+        }} className="hover-bg-30363d">
           <Plus size={16} />
         </button>
       </div>
 
-      {/* File Tree */}
+      {/* File List */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
-        {renderFileTree(files)}
+        {files.map((fileName) => {
+          const isSelected = activeFile === fileName;
+          return (
+            <div
+              key={fileName}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '6px 16px',
+                cursor: 'pointer',
+                backgroundColor: isSelected ? 'rgba(34, 211, 238, 0.1)' : 'transparent',
+                color: isSelected ? '#22d3ee' : '#e6edf3',
+                fontSize: '13px'
+              }}
+              onClick={() => selectFile(fileName)}
+              className="file-item-hover"
+            >
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <File size={16} style={{ marginRight: '8px', opacity: 0.8 }} />
+                <span>{fileName}</span>
+              </div>
+              <button 
+                onClick={(e) => deleteFile(fileName, e)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#8b949e',
+                  cursor: 'pointer',
+                  padding: '2px',
+                  display: isSelected ? 'block' : 'none'
+                }}
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          );
+        })}
+        {files.length === 0 && (
+          <div style={{ padding: '20px', textAlign: 'center', color: '#8b949e', fontSize: '12px' }}>
+            No files in workspace
+          </div>
+        )}
       </div>
-
-      {/* Footer with room stats */}
-      <div style={{
-        padding: '12px 16px',
-        borderTop: '1px solid #30363d',
-        fontSize: '12px',
-        color: '#8b949e'
-      }}>
-        <div>Room: {roomId}</div>
-        <div>Files: {files.length}</div>
-      </div>
+      <style>{`
+        .hover-bg-30363d:hover { background-color: #30363d; color: #fff; }
+        .file-item-hover:hover { background-color: rgba(255,255,255,0.05); }
+        .file-item-hover:hover button { display: block !important; }
+      `}</style>
     </div>
   );
 }

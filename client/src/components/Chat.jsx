@@ -1,55 +1,80 @@
 import { useState, useEffect, useRef } from 'react';
+import { Send, MessageSquare } from 'lucide-react';
 
 export default function Chat({ provider, username }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
-  const [isOpen, setIsOpen] = useState(false); // Collapsible sidebar
-  const [hasNewMessage, setHasNewMessage] = useState(false);
+  const [typingUsers, setTypingUsers] = useState([]);
   
-  // Ref to the shared chat array
   const yChatArrayRef = useRef(null);
   const chatBoxRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
   useEffect(() => {
     if (!provider) return;
 
-    // 1. Get the shared Chat Array from the document
     const ydoc = provider.doc;
     const yChatArray = ydoc.getArray('chat-messages');
     yChatArrayRef.current = yChatArray;
 
-    // 2. Observer: When the array changes (someone sent a msg), update React state
     const updateMessages = () => {
       setMessages(yChatArray.toArray());
-      
-      // Notification badge logic
-      if (!isOpen) setHasNewMessage(true);
     };
 
     yChatArray.observe(updateMessages);
+    updateMessages(); // initial load
 
-    // Initial load
-    updateMessages();
+    // Setup awareness for typing indicators
+    const awareness = provider.awareness;
+    const updateTyping = () => {
+       const states = awareness.getStates();
+       const typing = [];
+       states.forEach((state) => {
+         if (state.user && state.user.name !== username && state.typing) {
+           typing.push(state.user.name);
+         }
+       });
+       setTypingUsers(typing);
+    };
+
+    awareness.on('change', updateTyping);
 
     return () => {
       yChatArray.unobserve(updateMessages);
+      awareness.off('change', updateTyping);
     };
-  }, [provider, isOpen]);
+  }, [provider, username]);
+
+  const setTyping = (isTyping) => {
+    if (!provider) return;
+    provider.awareness.setLocalStateField('typing', isTyping);
+  };
+
+  const handleInputChange = (e) => {
+    setInput(e.target.value);
+    setTyping(true);
+    
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      setTyping(false);
+    }, 1500);
+  };
 
   const sendMessage = (e) => {
     e.preventDefault();
     if (!input.trim() || !yChatArrayRef.current) return;
 
-    // 3. Push message to shared array
     const newMessage = {
       user: username,
       text: input,
-      timestamp: new Date().toLocaleTimeString(),
-      color: '#' + Math.floor(Math.random()*16777215).toString(16) // Random color for name
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      color: provider.awareness.getLocalState()?.user?.color || '#22d3ee'
     };
 
     yChatArrayRef.current.push([newMessage]);
     setInput('');
+    setTyping(false);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
   };
 
   // Auto-scroll to bottom
@@ -57,80 +82,102 @@ export default function Chat({ provider, username }) {
     if (chatBoxRef.current) {
       chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
     }
-  }, [messages, isOpen]);
+  }, [messages, typingUsers]);
 
   return (
-    <>
-      {/* 🟢 TOGGLE BUTTON */}
-      <button 
-        onClick={() => { setIsOpen(!isOpen); setHasNewMessage(false); }}
-        style={{
-          position: 'fixed',
-          bottom: '20px',
-          right: '20px',
-          zIndex: 1000,
-          padding: '15px',
-          borderRadius: '50%',
-          border: 'none',
-          backgroundColor: '#61dafb',
-          cursor: 'pointer',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
-          fontWeight: 'bold'
-        }}
-      >
-        💬 {hasNewMessage && <span style={{position:'absolute', top:0, right:0, width:'10px', height:'10px', background:'red', borderRadius:'50%'}}></span>}
-      </button>
-
-      {/* 🟢 CHAT SIDEBAR */}
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100%',
+      backgroundColor: '#0f172a',
+      color: '#e2e8f0',
+      borderLeft: '1px solid #1e293b'
+    }}>
+      {/* Header */}
       <div style={{
-        position: 'fixed',
-        top: 0,
-        right: isOpen ? 0 : '-350px', // Slide in/out animation
-        width: '320px',
-        height: '100vh',
-        backgroundColor: '#1e1e1e',
-        borderLeft: '2px solid #333',
-        transition: 'right 0.3s ease',
-        zIndex: 999,
+        padding: '12px 16px',
+        borderBottom: '1px solid #1e293b',
         display: 'flex',
-        flexDirection: 'column'
+        alignItems: 'center',
+        gap: '8px'
       }}>
-        {/* Header */}
-        <div style={{ padding: '15px', backgroundColor: '#252526', borderBottom: '1px solid #333', color: '#fff', fontWeight: 'bold' }}>
-          Room Chat ({messages.length})
-          <button onClick={() => setIsOpen(false)} style={{float:'right', background:'none', border:'none', color:'#888', cursor:'pointer'}}>✕</button>
-        </div>
+        <MessageSquare size={16} color="#94a3b8" />
+        <span style={{ fontSize: '11px', fontWeight: '600', letterSpacing: '0.04em' }}>TEAM CHAT ({messages.length})</span>
+      </div>
 
-        {/* Messages Area */}
-        <div ref={chatBoxRef} style={{ flex: 1, overflowY: 'auto', padding: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {messages.map((msg, i) => (
-            <div key={i} style={{ 
-              alignSelf: msg.user === username ? 'flex-end' : 'flex-start',
-              maxWidth: '80%',
-              backgroundColor: msg.user === username ? '#007acc' : '#333',
-              color: 'white',
-              padding: '8px 12px',
-              borderRadius: '10px',
-              fontSize: '14px'
+      {/* Messages */}
+      <div ref={chatBoxRef} style={{ flex: 1, overflowY: 'auto', padding: '16px', paddingBottom: '108px', display: 'flex', flexDirection: 'column', gap: '12px', minHeight: 0 }}>
+        {messages.map((msg, i) => {
+          const isMe = msg.user === username;
+          return (
+            <div key={i} style={{
+              alignSelf: isMe ? 'flex-end' : 'flex-start',
+              maxWidth: '85%',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px'
             }}>
-              <div style={{ fontSize: '10px', color: '#ccc', marginBottom: '2px' }}>{msg.user} • {msg.timestamp}</div>
-              {msg.text}
+              {!isMe && <span style={{ fontSize: '10px', color: msg.color, alignSelf: 'flex-start', marginLeft: '2px', fontWeight: 'bold' }}>{msg.user}</span>}
+              <div style={{ 
+                backgroundColor: isMe ? '#22d3ee' : '#1e293b',
+                color: isMe ? '#020617' : '#f8fafc',
+                padding: '8px 12px',
+                borderRadius: '12px',
+                borderBottomRightRadius: isMe ? '2px' : '12px',
+                borderBottomLeftRadius: !isMe ? '2px' : '12px',
+                fontSize: '13px',
+                lineHeight: '1.4'
+              }}>
+                {msg.text}
+              </div>
+              <span style={{ fontSize: '9px', color: '#64748b', alignSelf: isMe ? 'flex-end' : 'flex-start', marginRight: '2px' }}>{msg.timestamp}</span>
             </div>
-          ))}
-          {messages.length === 0 && <div style={{color:'#666', textAlign:'center', marginTop:'20px'}}>No messages yet. Say hi! 👋</div>}
-        </div>
+          );
+        })}
+        {messages.length === 0 && <div style={{color:'#64748b', textAlign:'center', marginTop:'20px', fontSize: '13px'}}>No messages yet. Say hi! 👋</div>}
+        
+        {typingUsers.length > 0 && (
+          <div style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', alignSelf: 'flex-start' }}>
+            {typingUsers.join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
+          </div>
+        )}
+      </div>
 
-        {/* Input Area */}
-        <form onSubmit={sendMessage} style={{ padding: '15px', borderTop: '1px solid #333', display: 'flex' }}>
+      {/* Input */}
+      <div style={{ position: 'sticky', bottom: 0, left: 0, right: 0, zIndex: 1, padding: '12px 16px', borderTop: '1px solid #1e293b', backgroundColor: '#0f172a' }}>
+        <form onSubmit={sendMessage} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <input 
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
             placeholder="Type a message..."
-            style={{ flex: 1, padding: '10px', borderRadius: '5px', border: 'none', backgroundColor: '#333', color: 'white', outline: 'none' }}
+            style={{ 
+              flex: 1, 
+              padding: '12px 14px', 
+              borderRadius: '10px', 
+              border: '1px solid #334155', 
+              backgroundColor: '#1e293b', 
+              color: 'white', 
+              outline: 'none',
+              fontSize: '13px'
+            }}
           />
-          <button type="submit" style={{ marginLeft: '10px', backgroundColor: '#61dafb', border: 'none', borderRadius: '5px', padding: '0 15px', cursor: 'pointer' }}>➤</button>
+          <button type="submit" disabled={!input.trim()} style={{ 
+            backgroundColor: input.trim() ? '#22d3ee' : 'transparent', 
+            color: input.trim() ? '#020617' : '#64748b', 
+            border: 'none', 
+            borderRadius: '10px', 
+            height: '42px',
+            minWidth: '42px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: input.trim() ? 'pointer' : 'default',
+            transition: 'all 0.2s'
+          }}>
+            <Send size={16} />
+          </button>
         </form>
       </div>
-    </>
+    </div>
   );
 }
