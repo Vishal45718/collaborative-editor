@@ -16,11 +16,23 @@ export const executeCode = async ({ language, version, code, stdin, timeout, mem
     };
 
     const startTime = Date.now();
-    const response = await fetch('https://emkc.org/api/v2/piston/execute', {
+    
+    // Provide a way to use a custom Piston instance or an API key
+    // The public API at emkc.org is whitelist-only as of Feb 2026.
+    const pistonUrl = process.env.PISTON_URL || 'https://emkc.org/api/v2/piston/execute';
+    const pistonApiKey = process.env.PISTON_API_KEY;
+
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+
+    if (pistonApiKey) {
+      headers['Authorization'] = pistonApiKey; // Usually passed raw or as Bearer token
+    }
+
+    const response = await fetch(pistonUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers,
       body: JSON.stringify(requestBody)
     });
 
@@ -29,7 +41,12 @@ export const executeCode = async ({ language, version, code, stdin, timeout, mem
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Piston API Error: ${response.status} - ${errorText}`);
-      throw new Error(`Piston API returned status ${response.status}`);
+      
+      let errorMessage = `Piston API returned status ${response.status}`;
+      if (response.status === 401) {
+        errorMessage += ` (Unauthorized). The public Piston API is whitelist-only. Please set PISTON_URL to a local Piston instance (e.g., http://localhost:2000/api/v2/execute) or provide a PISTON_API_KEY.`;
+      }
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();

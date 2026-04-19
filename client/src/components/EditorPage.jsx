@@ -196,21 +196,25 @@ export default function EditorPage() {
 
       {/* MAIN WORKSPACE */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', padding: '1rem 20px', gap: '16px' }}>
-        <PanelGroup direction="horizontal" style={{ flex: 1, minHeight: 0 }}>
+        <PanelGroup orientation="horizontal" style={{ flex: 1, minHeight: 0 }}>
           <Panel defaultSize={18} minSize={15} maxSize={26}>
             <div style={{ height: '100%', minHeight: 0, display: 'flex' }}>
               <FileExplorer filesMap={filesMap} />
             </div>
           </Panel>
-          <PanelResizeHandle style={{ width: '4px', cursor: 'col-resize', background: '#1e293b', transition: 'background 0.2s' }} />
+          <PanelResizeHandle style={{ width: '8px', marginLeft: '-2px', marginRight: '-2px', zIndex: 10, cursor: 'col-resize', display: 'flex', justifyContent: 'center', alignItems: 'center', outline: 'none' }}>
+            <div style={{ width: '2px', height: '100%', background: '#1e293b', transition: 'background 0.2s' }} onMouseOver={e => e.target.style.background = '#3b82f6'} onMouseOut={e => e.target.style.background = '#1e293b'} />
+          </PanelResizeHandle>
           <Panel defaultSize={56} minSize={45}>
-            <PanelGroup direction="vertical" style={{ height: '100%', minHeight: 0 }}>
+            <PanelGroup orientation="vertical" style={{ height: '100%', minHeight: 0 }}>
               <Panel>
                 <div style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                  {activeFile ? <CodeEditorView filesMap={filesMap} activeFile={activeFile} activeLanguage={activeLanguage} provider={provider} /> : <div style={{display:'flex', alignItems:'center', justifyContent:'center', height:'100%', color:'#475569'}}>Select a file to start coding</div>}
                 </div>
               </Panel>
-              <PanelResizeHandle style={{ height: '4px', cursor: 'row-resize', background: '#1e293b' }} />
+              <PanelResizeHandle style={{ height: '8px', marginTop: '-2px', marginBottom: '-2px', zIndex: 10, cursor: 'row-resize', display: 'flex', justifyContent: 'center', alignItems: 'center', outline: 'none' }}>
+                <div style={{ height: '2px', width: '100%', background: '#1e293b', transition: 'background 0.2s' }} onMouseOver={e => e.target.style.background = '#3b82f6'} onMouseOut={e => e.target.style.background = '#1e293b'} />
+              </PanelResizeHandle>
               <Panel defaultSize={30} minSize={16}>
                  <div style={{ display: 'flex', height: '100%', minHeight: 0, backgroundColor: '#0f172a', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 0 0 1px rgba(148, 163, 184, 0.08)' }}>
                     <div style={{ flex: '0 0 34%', minWidth: '180px', borderRight: '1px solid #1e293b', display: 'flex', flexDirection: 'column' }}>
@@ -230,7 +234,9 @@ export default function EditorPage() {
               </Panel>
             </PanelGroup>
           </Panel>
-          <PanelResizeHandle style={{ width: '4px', cursor: 'col-resize', background: '#1e293b' }} />
+          <PanelResizeHandle style={{ width: '8px', marginLeft: '-2px', marginRight: '-2px', zIndex: 10, cursor: 'col-resize', display: 'flex', justifyContent: 'center', alignItems: 'center', outline: 'none' }}>
+            <div style={{ width: '2px', height: '100%', background: '#1e293b', transition: 'background 0.2s' }} onMouseOver={e => e.target.style.background = '#3b82f6'} onMouseOut={e => e.target.style.background = '#1e293b'} />
+          </PanelResizeHandle>
           <Panel defaultSize={26} minSize={18} maxSize={34}>
             <div style={{ height: '100%', minHeight: 0, display: 'flex' }}>
               <Chat provider={provider} username={username} />
