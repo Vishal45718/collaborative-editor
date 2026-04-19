@@ -1,4 +1,4 @@
-# 🚀 CodeSync - Real-Time Collaborative IDE
+#  CodeSync - Real-Time Collaborative IDE
 
 A futuristic, real-time code editor that allows multiple developers to write, edit, and run code simultaneously. Built with cutting-edge technologies for seamless collaboration.
 
@@ -6,27 +6,27 @@ A futuristic, real-time code editor that allows multiple developers to write, ed
 
 ---
 
-## ✨ Features
+##  Features
 
-### 🔄 Real-Time Synchronization
+###  Real-Time Synchronization
 - **Sub-millisecond latency** updates using WebSockets
 - **CRDT-based** conflict resolution (Yjs)
 - **Operational Transformation** for seamless editing
 
-### 💻 Multi-Language Support
+###  Multi-Language Support
 - **C++** (GCC 10.2.0)
 - **Python** (3.10.0)
 - **Java** (OpenJDK 15)
 - **JavaScript** (Node 18)
 
-### 🛠️ Integrated Development Environment
+###  Integrated Development Environment
 - **VS Code-like interface** with OneDark theme
 - **File explorer** with project structure
 - **Real-time chat** for team communication
 - **Code execution** via Piston API
 - **Standard input/output** handling
 
-### 🔐 Security & Performance
+###  Security & Performance
 - **Sandboxed code execution**
 - **Room-based isolation**
 - **In-memory data storage** with presence indicators
@@ -34,7 +34,7 @@ A futuristic, real-time code editor that allows multiple developers to write, ed
 
 ---
 
-## 🏗️ Architecture
+##  Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐
@@ -67,7 +67,7 @@ A futuristic, real-time code editor that allows multiple developers to write, ed
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Prerequisites
 - **Node.js** 18+ and npm
@@ -102,7 +102,7 @@ npm run client    # Frontend on :5173
 
 ---
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 codesync/
@@ -141,7 +141,7 @@ codesync/
 
 ---
 
-## 🎨 Customization
+##  Customization
 
 ### Themes
 The editor supports multiple themes. To add a new theme:
@@ -156,7 +156,7 @@ To add a new programming language:
 
 ---
 
-## 🚢 Deployment
+##  Deployment
 
 ### Environment Variables for Production
 ```env
@@ -183,7 +183,7 @@ CMD ["npm", "start"]
 
 ---
 
-## 🤝 Contributing
+##  Contributing
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/amazing-feature`
@@ -193,13 +193,13 @@ CMD ["npm", "start"]
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🙏 Acknowledgments
+##  Acknowledgments
 
 - **Yjs** - For revolutionary CRDT technology
 - **CodeMirror** - For the world's best code editor
