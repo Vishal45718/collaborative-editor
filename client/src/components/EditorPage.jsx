@@ -255,10 +255,10 @@ export default function EditorPage() {
 
       {/* MAIN WORKSPACE */}
       <div className="workspace">
-        <PanelGroup orientation="horizontal">
-          <Panel defaultSize={18} minSize={15} maxSize={26}>
+        <PanelGroup orientation="horizontal" style={{ flex: 1, height: '100%', minHeight: 0 }}>
+          <Panel defaultSize={26} minSize={18} maxSize={34}>
             <div className="editor-panel">
-              <FileExplorer filesMap={filesMap} />
+              <Chat provider={provider} username={username} />
             </div>
           </Panel>
 
@@ -267,7 +267,7 @@ export default function EditorPage() {
           </PanelResizeHandle>
 
           <Panel defaultSize={56} minSize={45}>
-            <PanelGroup orientation="vertical">
+            <PanelGroup orientation="vertical" style={{ height: '100%', minHeight: 0 }}>
               <Panel>
                 <div className="editor-panel">
                   {activeFile ? (
@@ -318,9 +318,9 @@ export default function EditorPage() {
             <div />
           </PanelResizeHandle>
 
-          <Panel defaultSize={26} minSize={18} maxSize={34}>
+          <Panel defaultSize={18} minSize={15} maxSize={26}>
             <div className="editor-panel">
-              <Chat provider={provider} username={username} />
+              <FileExplorer filesMap={filesMap} />
             </div>
           </Panel>
         </PanelGroup>

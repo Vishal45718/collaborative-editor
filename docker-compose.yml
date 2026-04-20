@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  piston:
+    image: ghcr.io/engineer-man/piston
+    ports:
+      - "2000:2000"
+    restart: unless-stopped
+    # Piston requires some security flags and tempfs to isolate execution
+    tmpfs:
+      - /tmp:exec

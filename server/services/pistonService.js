@@ -19,7 +19,7 @@ export const executeCode = async ({ language, version, code, stdin, timeout, mem
     
     // Provide a way to use a custom Piston instance or an API key
     // The public API at emkc.org is whitelist-only as of Feb 2026.
-    const pistonUrl = process.env.PISTON_URL || 'https://emkc.org/api/v2/piston/execute';
+    const pistonUrl = process.env.PISTON_URL || 'http://localhost:2000/api/v2/execute';
     const pistonApiKey = process.env.PISTON_API_KEY;
 
     const headers = {
