@@ -5,7 +5,7 @@ import { EditorState } from '@codemirror/state';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { yCollab } from 'y-codemirror.next';
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from 'react-resizable-panels';
-import { Play, Copy, ChevronDown, Users, Terminal, Code2, RotateCcw } from 'lucide-react';
+import { Play, Copy, ChevronDown, Users, Terminal, Code2, RotateCcw, Files } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import * as Y from 'yjs';
 
@@ -35,6 +35,7 @@ export default function EditorPage() {
   const [showUserList, setShowUserList] = useState(false);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [execMetrics, setExecMetrics] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const languageDropdownRef = useRef(null);
 
   useEffect(() => {
@@ -263,20 +264,35 @@ export default function EditorPage() {
 
       {/* MAIN WORKSPACE */}
       <div className="workspace">
-        <PanelGroup orientation="horizontal" style={{ flex: 1, height: '100%', minHeight: 0 }}>
-          {/* LEFT — File Explorer */}
-          <Panel defaultSize={18} minSize={14} maxSize={28}>
-            <div className="editor-panel">
-              <FileExplorer filesMap={filesMap} />
-            </div>
-          </Panel>
+        {/* VS Code Activity Bar */}
+        <div className="activity-bar">
+          <button
+            className={`activity-bar-btn ${sidebarOpen ? 'activity-bar-btn--active' : ''}`}
+            onClick={() => setSidebarOpen(p => !p)}
+            title="Explorer"
+          >
+            <Files size={22} />
+            <span className="activity-bar-label">Explorer</span>
+          </button>
+        </div>
 
-          <PanelResizeHandle className="resize-handle-vertical">
-            <div />
-          </PanelResizeHandle>
+        <PanelGroup orientation="horizontal" style={{ flex: 1, height: '100%', minHeight: 0 }}>
+          {/* LEFT — File Explorer Sidebar */}
+          {sidebarOpen && (
+            <>
+              <Panel defaultSize={20} minSize={14} maxSize={35} className="sidebar-panel">
+                <div className="sidebar">
+                  <FileExplorer filesMap={filesMap} />
+                </div>
+              </Panel>
+              <PanelResizeHandle className="resize-handle-vertical">
+                <div />
+              </PanelResizeHandle>
+            </>
+          )}
 
           {/* CENTER — Editor + Output */}
-          <Panel defaultSize={82} minSize={55}>
+          <Panel minSize={40}>
             <PanelGroup orientation="vertical" style={{ height: '100%', minHeight: 0 }}>
               {/* Code Editor */}
               <Panel>

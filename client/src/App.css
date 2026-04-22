@@ -270,8 +270,8 @@
   flex: 1;
   display: flex;
   overflow: hidden;
-  padding: 10px 16px;
-  gap: 10px;
+  padding: 0;
+  gap: 0;
 }
 
 /* ── RESIZE HANDLES ──────────────────────────────────────── */
@@ -328,7 +328,6 @@
   display: flex;
   flex-direction: column;
   background: #020617;
-  border-radius: 8px;
 }
 
 .editor-empty-state {
@@ -352,9 +351,8 @@
   height: 100%;
   min-height: 0;
   background: #0d1117;
-  border-radius: 8px;
   overflow: hidden;
-  border: 1px solid #1e293b;
+  border-top: 1px solid #1e293b;
 }
 
 /* Tab Bar */
@@ -859,11 +857,6 @@
 }
 
 @media (max-width: 768px) {
-  .workspace {
-    padding: 6px 8px;
-    gap: 6px;
-  }
-
   .language-selector-button {
     padding: 4px 8px;
     font-size: 0.82rem;
@@ -878,4 +871,317 @@
     width: 290px;
     height: 380px;
   }
+}
+
+/* ============================================================
+   VS CODE — ACTIVITY BAR
+   ============================================================ */
+
+.activity-bar {
+  width: 48px;
+  min-width: 48px;
+  height: 100%;
+  background: #0f172a;
+  border-right: 1px solid #1e293b;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 8px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.activity-bar-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.activity-bar-btn:hover {
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.activity-bar-btn--active {
+  color: #e2e8f0;
+  background: rgba(34, 211, 238, 0.1);
+}
+
+/* Left accent bar when active */
+.activity-bar-btn--active::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 25%;
+  height: 50%;
+  width: 2px;
+  background: #22d3ee;
+  border-radius: 0 2px 2px 0;
+}
+
+.activity-bar-label {
+  font-size: 8px;
+  letter-spacing: 0.03em;
+  font-weight: 600;
+  line-height: 1;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* ============================================================
+   VS CODE — SIDEBAR
+   ============================================================ */
+
+.sidebar {
+  height: 100%;
+  width: 100%;
+  background: #0f172a;
+  border-right: 1px solid #1e293b;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ============================================================
+   FILE EXPLORER COMPONENT
+   ============================================================ */
+
+.fe-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: #0f172a;
+  color: #cdd6f4;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Section header (EXPLORER row with chevron) */
+.fe-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 8px 9px 10px;
+  cursor: pointer;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.fe-section-header:hover .fe-icon-btn {
+  opacity: 1;
+}
+
+.fe-section-left {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.fe-chevron {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.fe-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  white-space: nowrap;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.fe-icon-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  opacity: 0;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.fe-icon-btn:hover {
+  background: rgba(255,255,255,0.08);
+  color: #e2e8f0;
+  opacity: 1 !important;
+}
+
+/* Workspace label row */
+.fe-workspace-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #475569;
+  border-bottom: 1px solid #1e293b;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+/* File list scroll area */
+.fe-file-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 0;
+}
+
+.fe-file-list::-webkit-scrollbar { width: 4px; }
+.fe-file-list::-webkit-scrollbar-track { background: transparent; }
+.fe-file-list::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 2px; }
+.fe-file-list::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+/* Empty state */
+.fe-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  gap: 8px;
+  color: #334155;
+  text-align: center;
+  font-size: 12px;
+}
+
+.fe-empty-btn {
+  margin-top: 4px;
+  padding: 6px 14px;
+  background: rgba(34, 211, 238, 0.1);
+  border: 1px solid rgba(34, 211, 238, 0.25);
+  border-radius: 6px;
+  color: #22d3ee;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: 'Inter', system-ui, sans-serif;
+  transition: all 0.15s;
+}
+
+.fe-empty-btn:hover {
+  background: rgba(34, 211, 238, 0.2);
+}
+
+/* Individual file row */
+.fe-file-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 0;
+  height: 28px;
+  cursor: pointer;
+  color: #94a3b8;
+  font-size: 13px;
+  font-family: 'Inter', system-ui, sans-serif;
+  border-left: 2px solid transparent;
+  transition: background 0.1s, color 0.1s;
+  position: relative;
+  overflow: hidden;
+}
+
+.fe-file-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+}
+
+.fe-file-row--active {
+  background: rgba(34, 211, 238, 0.08) !important;
+  color: #e2e8f0 !important;
+  border-left-color: #22d3ee;
+}
+
+.fe-file-indent {
+  width: 20px;
+  min-width: 20px;
+  height: 100%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.fe-file-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Inline rename input */
+.fe-rename-input {
+  flex: 1;
+  min-width: 0;
+  background: #1e293b;
+  border: 1px solid #22d3ee;
+  border-radius: 3px;
+  color: #e2e8f0;
+  font-size: 12px;
+  font-family: 'Inter', system-ui, sans-serif;
+  padding: 1px 4px;
+  outline: none;
+  height: 22px;
+}
+
+/* Action buttons (rename / delete) */
+.fe-file-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s;
+  flex-shrink: 0;
+}
+
+.fe-file-actions--visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.fe-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.12s;
+  flex-shrink: 0;
+}
+
+.fe-action-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: #e2e8f0;
+}
+
+.fe-action-btn--del:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.fe-action-btn--ok:hover {
+  background: rgba(74, 222, 128, 0.15);
+  color: #4ade80;
 }
