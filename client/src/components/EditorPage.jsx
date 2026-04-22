@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { EditorView, basicSetup } from 'codemirror';
 import { EditorState } from '@codemirror/state';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { yCollab } from 'y-codemirror.next';
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from 'react-resizable-panels';
-import { Play, Copy, ChevronDown, Users, X, Terminal, Clock, Cpu, Code2 } from 'lucide-react';
+import { Play, Copy, ChevronDown, Users, Terminal, Code2, RotateCcw } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
+import * as Y from 'yjs';
 
 import Chat from './Chat';
 import FileExplorer from './FileExplorer';
@@ -23,12 +24,12 @@ export default function EditorPage() {
   const username = location.state?.username || 'Anonymous';
 
   const { provider, filesMap, clients } = useYjsProvider(roomId, username);
-  const { 
+  const {
     activeFile, activeLanguage, setActiveLanguage,
     executionOutput, executionError, setExecutionOutput,
     isRunning, setIsRunning,
     stdin, setStdin,
-    timeout, memoryLimit, setTimeout, setMemoryLimit
+    activeOutputTab, setActiveOutputTab,
   } = useIdeStore();
 
   const [showUserList, setShowUserList] = useState(false);
@@ -38,7 +39,7 @@ export default function EditorPage() {
 
   useEffect(() => {
     if (!location.state?.username) {
-        navigate('/');
+      navigate('/');
     }
   }, [location.state, navigate]);
 
@@ -62,21 +63,46 @@ export default function EditorPage() {
     }
   };
 
+  // ─── Language Switch: update Y.Text with default code for that language ───
+  const handleLanguageChange = useCallback((langId) => {
+    if (!filesMap || !activeFile) {
+      setActiveLanguage(langId);
+      setShowLanguageDropdown(false);
+      toast.success(`Language changed to ${LANGUAGES[langId]?.name}`);
+      return;
+    }
+
+    const defaultCode = LANGUAGES[langId]?.defaultCode || '';
+    const ytext = filesMap.get(activeFile);
+
+    if (ytext) {
+      // Replace Y.Text content with the new language's starter template
+      ytext.delete(0, ytext.length);
+      ytext.insert(0, defaultCode);
+    }
+
+    setActiveLanguage(langId);
+    setShowLanguageDropdown(false);
+    toast.success(`Switched to ${LANGUAGES[langId]?.name}`);
+  }, [filesMap, activeFile, setActiveLanguage]);
+
+  // ─── Code Execution ───────────────────────────────────────────────────────
   const runCode = async () => {
     if (!activeFile || !filesMap || !filesMap.has(activeFile)) {
       toast.error('No valid file to execute');
       return;
     }
-    
+
     setIsRunning(true);
-    setExecutionOutput('⏳ Compiling and running...', false);
+    setActiveOutputTab('run');
+    setExecutionOutput('⏳ Compiling and running…', false);
     setExecMetrics(null);
 
     const sourceCode = filesMap.get(activeFile).toString();
     const runtime = LANGUAGES[activeLanguage]?.pistonRuntime;
 
     if (!runtime) {
-      setExecutionOutput(`Language execution not configured for ${activeLanguage}`, true);
+      setExecutionOutput(`Language execution not configured for "${activeLanguage}"`, true);
       setIsRunning(false);
       return;
     }
@@ -87,85 +113,92 @@ export default function EditorPage() {
         version: runtime.version,
         code: sourceCode,
         stdin: stdin,
-        timeout,
-        memoryLimit
       };
-      
+
       const response = await fetch('http://localhost:1234/api/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `API Error: ${response.status}`);
+        throw new Error(errorData.error || `Server error: ${response.status}`);
       }
 
       const data = await response.json();
-      
       setExecMetrics({ time: data.executionTimeMs });
 
       if (data.run) {
-        const output = data.run.stdout || data.run.output || '';
+        const stdout = data.run.stdout || data.run.output || '';
         const stderr = data.run.stderr || '';
-        
-        if (data.run.code !== 0) {
-           setExecutionOutput((stderr || output) + `\\n\\n[Exited with code ${data.run.code}]`, true);
-           toast.error('Execution finished with errors');
+        const exitCode = data.run.code;
+
+        if (exitCode !== 0) {
+          const errText = (stderr || stdout) + `\n\n[Process exited with code ${exitCode}]`;
+          setExecutionOutput(errText, true);
+          toast.error('Execution finished with errors');
         } else if (stderr && stderr.trim()) {
           setExecutionOutput(stderr, true);
-          toast.error('Execution error');
-        } else if (output.trim()) {
-          setExecutionOutput(output, false);
-          toast.success('Code executed!');
+          toast.error('Execution produced stderr output');
+        } else if (stdout.trim()) {
+          setExecutionOutput(stdout, false);
+          toast.success('Code executed successfully!');
         } else {
-          setExecutionOutput('✅ Success (no output)', false);
+          setExecutionOutput('✅ Process finished with no output.', false);
           toast.success('Code executed!');
         }
       } else if (data.compile) {
-        setExecutionOutput(data.compile.stderr || 'Compilation error', true);
+        setExecutionOutput(
+          `Compilation failed:\n\n${data.compile.stderr || data.compile.output || 'Unknown compilation error'}`,
+          true
+        );
         toast.error('Compilation failed');
       } else {
-        throw new Error('Invalid API response');
+        throw new Error('Unexpected API response structure');
       }
     } catch (err) {
-      setExecutionOutput(`❌ Error: ${err.message}`, true);
+      setExecutionOutput(`❌ Error: ${err.message}\n\nMake sure the Piston execution engine is running.\nRun: docker-compose up -d`, true);
       toast.error('Execution failed');
     } finally {
       setIsRunning(false);
     }
   };
 
+  const clearOutput = () => {
+    setExecutionOutput('Ready to run. Press ▶ Run to execute your code.', false);
+    setExecMetrics(null);
+  };
+
   const languageList = Object.values(LANGUAGES);
 
   return (
     <div className="editor-container">
-      <Toaster position="top-center" toastOptions={{ style: { background: '#1e293b', color: '#fff' } }}/>
-      
+      <Toaster position="top-center" toastOptions={{ style: { background: '#1e293b', color: '#fff' } }} />
+
       {/* TOP NAVIGATION BAR */}
       <nav className="navbar">
-        {/* LEFT SECTION - Brand & Room */}
+        {/* LEFT — Brand & Room */}
         <div className="navbar-section">
           <div className="navbar-brand">
             <div className="navbar-brand-icon">C</div>
             <h2 className="navbar-brand-title">CodeSync</h2>
           </div>
-          
+
           <div className="badge">
             <span className="badge-label">Room:</span>
             <span>{roomId}</span>
             <button onClick={copyRoomId} className="badge-button">
-              <Copy size={14}/>
+              <Copy size={14} />
             </button>
           </div>
         </div>
 
-        {/* CENTER SECTION - Controls */}
+        {/* CENTER — Controls */}
         <div className="center-controls">
           {/* Language Selector */}
           <div className="language-selector" ref={languageDropdownRef}>
-            <button 
+            <button
               className="language-selector-button"
               onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
               title="Select programming language"
@@ -174,18 +207,14 @@ export default function EditorPage() {
               {LANGUAGES[activeLanguage]?.name || 'Select Language'}
               <ChevronDown size={14} />
             </button>
-            
+
             {showLanguageDropdown && (
               <div className="language-dropdown">
                 {languageList.map((lang) => (
                   <button
                     key={lang.id}
                     className={`language-option ${lang.id === activeLanguage ? 'active' : ''}`}
-                    onClick={() => {
-                      setActiveLanguage(lang.id);
-                      setShowLanguageDropdown(false);
-                      toast.success(`Language changed to ${lang.name}`);
-                    }}
+                    onClick={() => handleLanguageChange(lang.id)}
                   >
                     {lang.name}
                   </button>
@@ -194,61 +223,40 @@ export default function EditorPage() {
             )}
           </div>
 
-          {/* User Avatars */}
-          <div>
-            <button 
-              className="badge"
-              onClick={() => setShowUserList(!showUserList)}
-              style={{ cursor: 'pointer' }}
-            >
-              <Users size={14} />
-              <div className="avatar-group">
-                {clients.slice(0, 3).map((c, i) => (
-                  <div key={i} className="avatar" style={{ backgroundColor: c.color }}>
-                    {c.name[0].toUpperCase()}
-                  </div>
-                ))}
-                {clients.length > 3 && (
-                  <div className="avatar" style={{ backgroundColor: '#334155' }}>
-                    +{clients.length - 3}
-                  </div>
-                )}
-              </div>
-            </button>
-          </div>
-
-          {/* Execution Config */}
-          <div className="exec-config">
-            <Clock size={14} color="#94a3b8"/>
-            <input 
-              type="number" 
-              min="100" 
-              max="10000" 
-              value={timeout} 
-              onChange={e => setTimeout(e.target.value)} 
-              className="exec-config-input"
-              title="Timeout in milliseconds"
-            />
-            <span className="exec-config-label">ms</span>
-            
-            <div className="divider" />
-            
-            <Cpu size={14} color="#94a3b8"/>
-            <input 
-              type="number" 
-              min="10" 
-              max="1024" 
-              value={memoryLimit} 
-              onChange={e => setMemoryLimit(e.target.value)} 
-              className="exec-config-input"
-              title="Memory limit in MB"
-            />
-            <span className="exec-config-label">MB</span>
-          </div>
+          {/* Online Users */}
+          <button
+            className="badge"
+            onClick={() => setShowUserList(!showUserList)}
+            style={{ cursor: 'pointer' }}
+          >
+            <Users size={14} />
+            <div className="avatar-group">
+              {clients.slice(0, 3).map((c, i) => (
+                <div key={i} className="avatar" style={{ backgroundColor: c.color }}>
+                  {c.name[0].toUpperCase()}
+                </div>
+              ))}
+              {clients.length > 3 && (
+                <div className="avatar" style={{ backgroundColor: '#334155' }}>
+                  +{clients.length - 3}
+                </div>
+              )}
+            </div>
+          </button>
 
           {/* Run Button */}
           <button onClick={runCode} disabled={isRunning} className="run-button">
-            {isRunning ? <><Terminal size={14} /> Running...</> : <><Play size={14} fill="#020617" /> Run</>}
+            {isRunning ? (
+              <>
+                <span className="run-spinner" />
+                Running…
+              </>
+            ) : (
+              <>
+                <Play size={14} fill="#020617" />
+                Run
+              </>
+            )}
           </button>
         </div>
       </nav>
@@ -256,9 +264,10 @@ export default function EditorPage() {
       {/* MAIN WORKSPACE */}
       <div className="workspace">
         <PanelGroup orientation="horizontal" style={{ flex: 1, height: '100%', minHeight: 0 }}>
-          <Panel defaultSize={26} minSize={18} maxSize={34}>
+          {/* LEFT — File Explorer */}
+          <Panel defaultSize={18} minSize={14} maxSize={28}>
             <div className="editor-panel">
-              <Chat provider={provider} username={username} />
+              <FileExplorer filesMap={filesMap} />
             </div>
           </Panel>
 
@@ -266,15 +275,23 @@ export default function EditorPage() {
             <div />
           </PanelResizeHandle>
 
-          <Panel defaultSize={56} minSize={45}>
+          {/* CENTER — Editor + Output */}
+          <Panel defaultSize={82} minSize={55}>
             <PanelGroup orientation="vertical" style={{ height: '100%', minHeight: 0 }}>
+              {/* Code Editor */}
               <Panel>
                 <div className="editor-panel">
                   {activeFile ? (
-                    <CodeEditorView filesMap={filesMap} activeFile={activeFile} activeLanguage={activeLanguage} provider={provider} />
+                    <CodeEditorView
+                      filesMap={filesMap}
+                      activeFile={activeFile}
+                      activeLanguage={activeLanguage}
+                      provider={provider}
+                    />
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#475569' }}>
-                      Select a file to start coding
+                    <div className="editor-empty-state">
+                      <Code2 size={40} color="#334155" />
+                      <p>Select or create a file to start coding</p>
                     </div>
                   )}
                 </div>
@@ -284,80 +301,103 @@ export default function EditorPage() {
                 <div />
               </PanelResizeHandle>
 
+              {/* VS Code-like Bottom Panel */}
               <Panel defaultSize={30} minSize={16}>
-                <div className="bottom-panels">
-                  {/* STDIN Input Panel */}
-                  <div className="panel-tab" style={{ flex: '0 0 34%', minWidth: '180px', borderRight: '1px solid #1e293b' }}>
-                    <div className="panel-tab-header panel-tab-header.right-border">STDIN (Input)</div>
-                    <textarea 
-                      value={stdin} 
-                      onChange={(e) => setStdin(e.target.value)} 
-                      placeholder="Provide input here..."
-                      className="panel-tab-content stdin-input"
-                    />
+                <div className="vscode-bottom-panel">
+                  {/* Tab bar */}
+                  <div className="vscode-tab-bar">
+                    <button
+                      className={`vscode-tab ${activeOutputTab === 'run' ? 'vscode-tab--active' : ''}`}
+                      onClick={() => setActiveOutputTab('run')}
+                    >
+                      <Play size={12} />
+                      Run
+                    </button>
+                    <button
+                      className={`vscode-tab ${activeOutputTab === 'terminal' ? 'vscode-tab--active' : ''}`}
+                      onClick={() => setActiveOutputTab('terminal')}
+                    >
+                      <Terminal size={12} />
+                      Terminal
+                    </button>
+
+                    <div className="vscode-tab-spacer" />
+
+                    {/* Right-side actions */}
+                    {activeOutputTab === 'run' && execMetrics && (
+                      <span className="vscode-exec-time">
+                        ⏱ {execMetrics.time}ms
+                      </span>
+                    )}
+                    <button className="vscode-action-btn" onClick={clearOutput} title="Clear output">
+                      <RotateCcw size={13} />
+                    </button>
                   </div>
 
-                  {/* Console Output Panel */}
-                  <div className="panel-tab" style={{ flex: 1 }}>
-                    <div className="panel-tab-header">
-                      <div className="panel-tab-header-content">
-                        <span>CONSOLE OUTPUT</span>
-                        {execMetrics && <span style={{ color: '#4ade80', fontSize: '0.8rem' }}>Exec Time: {execMetrics.time}ms</span>}
+                  {/* Tab Content */}
+                  <div className="vscode-panel-content">
+                    {activeOutputTab === 'run' && (
+                      <pre className={`vscode-output ${executionError ? 'vscode-output--error' : ''}`}>
+                        {executionOutput}
+                      </pre>
+                    )}
+
+                    {activeOutputTab === 'terminal' && (
+                      <div className="vscode-terminal">
+                        <div className="vscode-terminal-header">
+                          <span className="vscode-terminal-label">STDIN (Standard Input)</span>
+                        </div>
+                        <textarea
+                          value={stdin}
+                          onChange={(e) => setStdin(e.target.value)}
+                          placeholder="Provide program input here. Each line is a separate input."
+                          className="vscode-stdin"
+                          spellCheck={false}
+                        />
                       </div>
-                    </div>
-                    <pre className={`panel-tab-content console-output ${executionError ? 'error' : 'success'}`}>
-                      {executionOutput}
-                    </pre>
+                    )}
                   </div>
                 </div>
               </Panel>
             </PanelGroup>
           </Panel>
-
-          <PanelResizeHandle className="resize-handle-vertical">
-            <div />
-          </PanelResizeHandle>
-
-          <Panel defaultSize={18} minSize={15} maxSize={26}>
-            <div className="editor-panel">
-              <FileExplorer filesMap={filesMap} />
-            </div>
-          </Panel>
         </PanelGroup>
       </div>
+
+      {/* FLOATING CHAT WIDGET */}
+      <Chat provider={provider} username={username} />
     </div>
   );
 }
 
-// Separate component to handle CodeMirror lifecycle explicitly for the active file
+// ─── CodeMirror editor tied to a Y.Text document ─────────────────────────────
 function CodeEditorView({ filesMap, activeFile, activeLanguage, provider }) {
   const editorRef = useRef(null);
 
   useEffect(() => {
     if (!filesMap || !activeFile || !provider || !editorRef.current) return;
 
-    // filesMap stores Y.Text for each activeFile
     const ytext = filesMap.get(activeFile);
-    if (!ytext) return; // Wait for it to be created
+    if (!ytext) return;
 
     const langExt = LANGUAGES[activeLanguage]?.cmExtension;
 
     const extensions = [
       basicSetup,
       oneDark,
-      yCollab(ytext, provider.awareness)
+      yCollab(ytext, provider.awareness),
     ];
 
     if (langExt) extensions.push(langExt());
 
     const state = EditorState.create({
       doc: ytext.toString(),
-      extensions
+      extensions,
     });
 
     const view = new EditorView({
       state,
-      parent: editorRef.current
+      parent: editorRef.current,
     });
 
     return () => {

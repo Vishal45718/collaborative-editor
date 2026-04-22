@@ -1,58 +1,82 @@
 
+/**
+ * Piston Code Execution Service
+ *
+ * Requires a running Piston instance (self-hosted via Docker).
+ * Set PISTON_URL in .env to point to it (default: http://localhost:2000/api/v2/execute).
+ *
+ * Quick start:
+ *   docker-compose up -d
+ *   # Then install a runtime, e.g.:
+ *   curl -X POST http://localhost:2000/api/v2/packages \
+ *     -H 'Content-Type: application/json' \
+ *     -d '{"language":"python","version":"3.10.0"}'
+ */
 
-export const executeCode = async ({ language, version, code, stdin, timeout, memoryLimit }) => {
-  try {
-    const requestBody = {
-      language,
-      version,
-      files: [
-        {
-          content: code
-        }
-      ],
-      stdin: stdin || '',
-      run_timeout: timeout ? parseInt(timeout, 10) : 3000,
-      run_memory_limit: memoryLimit ? parseInt(memoryLimit, 10) : -1
-    };
+const PISTON_BASE = process.env.PISTON_URL
+  ? process.env.PISTON_URL.replace('/api/v2/execute', '')
+  : 'http://localhost:2000';
 
-    const startTime = Date.now();
-    
-    // Provide a way to use a custom Piston instance or an API key
-    // The public API at emkc.org is whitelist-only as of Feb 2026.
-    const pistonUrl = process.env.PISTON_URL || 'http://localhost:2000/api/v2/execute';
-    const pistonApiKey = process.env.PISTON_API_KEY;
+const PISTON_EXECUTE_URL = `${PISTON_BASE}/api/v2/execute`;
+const PISTON_RUNTIMES_URL = `${PISTON_BASE}/api/v2/runtimes`;
 
-    const headers = {
-      'Content-Type': 'application/json'
-    };
+/**
+ * List all runtimes installed on the Piston instance.
+ */
+export const listRuntimes = async () => {
+  const response = await fetch(PISTON_RUNTIMES_URL);
+  if (!response.ok) throw new Error(`Cannot reach Piston at ${PISTON_RUNTIMES_URL}`);
+  return response.json();
+};
 
-    if (pistonApiKey) {
-      headers['Authorization'] = pistonApiKey; // Usually passed raw or as Bearer token
+/**
+ * Execute code via the local Piston engine.
+ * @param {{ language: string, version: string, code: string, stdin?: string }} params
+ */
+export const executeCode = async ({ language, version, code, stdin }) => {
+  const requestBody = {
+    language,
+    version,
+    files: [{ content: code }],
+    stdin: stdin || '',
+    run_timeout: 10000,   // 10 seconds – internal only, not exposed in UI
+    run_memory_limit: -1, // unlimited – managed by Piston/Docker
+  };
+
+  const startTime = Date.now();
+
+  const response = await fetch(PISTON_EXECUTE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestBody),
+  });
+
+  const executionTimeMs = Date.now() - startTime;
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '');
+    console.error(`[Piston] Error ${response.status}: ${errorText}`);
+
+    if (response.status === 404) {
+      // Runtime not installed on the Piston instance
+      let parsed = {};
+      try { parsed = JSON.parse(errorText); } catch (_) { /* ignore */ }
+      const msg = parsed.message || `Runtime "${language}@${version}" not found.`;
+      throw new Error(
+        `${msg}\n\nInstall it with:\ncurl -X POST ${PISTON_BASE}/api/v2/packages \\\n  -H 'Content-Type: application/json' \\\n  -d '{"language":"${language}","version":"${version}"}'`
+      );
     }
 
-    const response = await fetch(pistonUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(requestBody)
-    });
-
-    const executionTimeMs = Date.now() - startTime;
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Piston API Error: ${response.status} - ${errorText}`);
-      
-      let errorMessage = `Piston API returned status ${response.status}`;
-      if (response.status === 401) {
-        errorMessage += ` (Unauthorized). The public Piston API is whitelist-only. Please set PISTON_URL to a local Piston instance (e.g., http://localhost:2000/api/v2/execute) or provide a PISTON_API_KEY.`;
-      }
-      throw new Error(errorMessage);
+    if (response.status === 503 || response.status === 502) {
+      throw new Error(
+        `Piston engine is unavailable (${response.status}).\nMake sure it's running:\n  docker-compose up -d`
+      );
     }
 
-    const data = await response.json();
-    return { ...data, executionTimeMs };
-  } catch (err) {
-    console.error('Code execution failed:', err);
-    throw err;
+    throw new Error(`Piston returned HTTP ${response.status}: ${errorText}`);
   }
+
+  const data = await response.json();
+  console.log(`[Piston] ${language}@${version} executed in ${executionTimeMs}ms`);
+  return { ...data, executionTimeMs };
 };

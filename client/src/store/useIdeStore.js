@@ -14,7 +14,7 @@ export const useIdeStore = create((set) => ({
   setBottomPanelSize: (size) => set({ bottomPanelSize: size }),
 
   // Execution states
-  executionOutput: 'Ready to run.',
+  executionOutput: 'Ready to run. Press ▶ Run to execute your code.',
   executionError: false,
   isRunning: false,
   stdin: '',
@@ -22,9 +22,7 @@ export const useIdeStore = create((set) => ({
   setIsRunning: (isRunning) => set({ isRunning }),
   setStdin: (stdin) => set({ stdin }),
 
-  // Execution config
-  timeout: 5000,
-  memoryLimit: 512,
-  setTimeout: (val) => set({ timeout: val }),
-  setMemoryLimit: (val) => set({ memoryLimit: val })
+  // Output panel tab: 'run' | 'terminal'
+  activeOutputTab: 'run',
+  setActiveOutputTab: (tab) => set({ activeOutputTab: tab }),
 }));
