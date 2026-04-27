@@ -23,7 +23,7 @@ export default function EditorPage() {
   const navigate = useNavigate();
   const username = location.state?.username || 'Anonymous';
 
-  const { provider, filesMap, clients } = useYjsProvider(roomId, username);
+  const { provider, filesMap, metaMap, clients } = useYjsProvider(roomId, username);
   const {
     activeFile, activeLanguage, setActiveLanguage,
     executionOutput, executionError, setExecutionOutput,
@@ -43,6 +43,23 @@ export default function EditorPage() {
       navigate('/');
     }
   }, [location.state, navigate]);
+
+  // ─── Sync language FROM shared metaMap (covers join + remote changes) ────
+  useEffect(() => {
+    if (!metaMap) return;
+
+    // Read whatever language is already set in the room
+    const current = metaMap.get('language');
+    if (current) setActiveLanguage(current);
+
+    // React to any future remote language changes
+    const onMeta = () => {
+      const lang = metaMap.get('language');
+      if (lang) setActiveLanguage(lang);
+    };
+    metaMap.observe(onMeta);
+    return () => metaMap.unobserve(onMeta);
+  }, [metaMap, setActiveLanguage]);
 
   // Close language dropdown when clicking outside
   useEffect(() => {
@@ -64,28 +81,20 @@ export default function EditorPage() {
     }
   };
 
-  // ─── Language Switch: update Y.Text with default code for that language ───
+  // ─── Language Switch: write to shared metaMap; NEVER wipe existing code ──
   const handleLanguageChange = useCallback((langId) => {
-    if (!filesMap || !activeFile) {
-      setActiveLanguage(langId);
-      setShowLanguageDropdown(false);
-      toast.success(`Language changed to ${LANGUAGES[langId]?.name}`);
-      return;
-    }
-
-    const defaultCode = LANGUAGES[langId]?.defaultCode || '';
-    const ytext = filesMap.get(activeFile);
-
-    if (ytext) {
-      // Replace Y.Text content with the new language's starter template
-      ytext.delete(0, ytext.length);
-      ytext.insert(0, defaultCode);
-    }
-
-    setActiveLanguage(langId);
     setShowLanguageDropdown(false);
+
+    if (metaMap) {
+      // Persist to shared state → all clients react via metaMap.observe
+      metaMap.set('language', langId);
+    } else {
+      // Fallback (metaMap not ready yet — should be rare)
+      setActiveLanguage(langId);
+    }
+
     toast.success(`Switched to ${LANGUAGES[langId]?.name}`);
-  }, [filesMap, activeFile, setActiveLanguage]);
+  }, [metaMap, setActiveLanguage]);
 
   // ─── Code Execution ───────────────────────────────────────────────────────
   const runCode = async () => {
@@ -282,7 +291,7 @@ export default function EditorPage() {
             <>
               <Panel defaultSize={20} minSize={14} maxSize={35} className="sidebar-panel">
                 <div className="sidebar">
-                  <FileExplorer filesMap={filesMap} />
+                  <FileExplorer filesMap={filesMap} metaMap={metaMap} />
                 </div>
               </Panel>
               <PanelResizeHandle className="resize-handle-vertical">

@@ -58,7 +58,7 @@ function FileIcon({ filename, size = 15 }) {
   );
 }
 
-export default function FileExplorer({ filesMap }) {
+export default function FileExplorer({ filesMap, metaMap }) {
   const [files, setFiles]               = useState([]);
   const [sectionOpen, setSectionOpen]   = useState(true);
   const [renamingFile, setRenamingFile] = useState(null);   // filename being renamed
@@ -92,7 +92,14 @@ export default function FileExplorer({ filesMap }) {
 
   const selectFile = (fileName) => {
     setActiveFile(fileName);
-    setActiveLanguage(getLanguageByExtension(fileName));
+    const langId = getLanguageByExtension(fileName);
+    // Write to shared room state so ALL clients see the same language.
+    // Fall back to local store if metaMap isn't ready yet.
+    if (metaMap) {
+      metaMap.set('language', langId);
+    } else {
+      setActiveLanguage(langId);
+    }
   };
 
   /* ── Add new file ───────────────────────────────────────────────────── */
@@ -103,7 +110,7 @@ export default function FileExplorer({ filesMap }) {
     if (filesMap.has(name)) { alert('File already exists!'); return; }
     const langId = getLanguageByExtension(name);
     filesMap.set(name, new Y.Text(LANGUAGES[langId]?.defaultCode || ''));
-    selectFile(name);
+    selectFile(name); // also sets shared language via metaMap
   };
 
   /* ── Delete file ────────────────────────────────────────────────────── */
